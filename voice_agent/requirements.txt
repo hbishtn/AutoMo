@@ -1,0 +1,13 @@
+# --- Phase 1: voice I/O + safe local commands ---
+python-dotenv==1.0.1
+SpeechRecognition==3.10.4
+pyaudio==0.2.14
+pyttsx3==2.90
+groq==0.11.0          # optional: only used if GROQ_API_KEY is set in .env
+
+# --- Reserved for later phases (not used yet, listed so setup is one-time) ---
+playwright==1.47.0     # Phase 2: Chrome automation
+pyautogui==0.9.54       # Phase 2/3: keyboard/mouse control
+pyperclip==1.9.0         # Phase 2/3: clipboard access
+pytest==8.3.3              # Phase 4: running/validating test suites
+GitPython==3.1.43           # Phase 3: backups via git

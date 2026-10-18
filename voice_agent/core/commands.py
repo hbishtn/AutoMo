@@ -101,13 +101,11 @@ def handle_read_response(browser, state):
         return str(exc)
 
 
-def handle_copy_code(browser, state):
+def handle_copy_code(browser, state: AgentState) -> str:
     try:
         import pyperclip
-        from core.browser import extract_code_blocks
 
-        text = browser.read_latest_response(state.last_ai_service)
-        blocks = extract_code_blocks(text)
+        blocks = browser.read_latest_code_blocks(state.last_ai_service)
         if not blocks:
             return "Is jawab me mujhe koi code block nahi mila."
         pyperclip.copy("\n\n".join(blocks))

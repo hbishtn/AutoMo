@@ -26,6 +26,8 @@ NVIDIA_NIM_API_KEY = os.getenv("NVIDIA_NIM_API_KEY", "").strip()
 
 # --- TTS ---
 TTS_RATE = int(os.getenv("TTS_RATE", "175"))
+TTS_ENGINE = os.getenv("TTS_ENGINE", "edge").strip().lower()
+TTS_EDGE_VOICE = os.getenv("TTS_EDGE_VOICE", "hi-IN-SwaraNeural").strip()
 
 # --- Safety ---
 MAX_AUTO_FIX_ATTEMPTS = 3  # used starting Phase 4

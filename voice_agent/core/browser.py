@@ -38,7 +38,7 @@ _SITE_CONFIG = {
         "domain": "chatgpt.com",
         "input_selectors": ['div[contenteditable="true"]', "#prompt-textarea", "textarea"],
         "submit_selectors": ['button[data-testid="send-button"]', 'button[type="submit"]'],
-        "response_selector": '[data-message-author-role="assistant"]',
+        "response_selector": 'div[class*="MarkdownRoot"]',
     },
 }
 
@@ -85,7 +85,7 @@ class BrowserController:
         for sel in cfg["input_selectors"]:
             try:
                 page.wait_for_selector(sel, timeout=3000)
-                input_box = page.locator(sel).first
+                input_box = page.locator(sel).last
                 break
             except PWTimeout:
                 continue
@@ -130,6 +130,40 @@ class BrowserController:
         if count == 0:
             raise BrowserAutomationError(f"{service} par koi response text nahi mila.")
         return responses.nth(count - 1).inner_text().strip()
+
+    def read_latest_code_blocks(self, service: str, wait_seconds: int = 25) -> list:
+        """Finds <pre>/<code> elements inside the latest reply and returns their
+        text. ChatGPT/Claude render code as a styled widget (language label +
+        "Run"/"Copy" buttons), not literal ``` markdown text, so this reads the
+        DOM directly instead of regex-parsing inner_text()."""
+        if service not in _SITE_CONFIG:
+            raise BrowserAutomationError(f"'{service}' supported nahi hai (sirf claude/chatgpt).")
+        cfg = _SITE_CONFIG[service]
+        page = self._get_or_open_tab(service)
+
+        try:
+            page.wait_for_selector(cfg["response_selector"], timeout=wait_seconds * 1000, state="visible")
+        except PWTimeout:
+            raise BrowserAutomationError(
+                f"{service} se {wait_seconds} second me koi response nahi mila — "
+                "ho sakta hai abhi bhi type ho raha ho, ya layout badal gaya ho."
+            )
+
+        responses = page.locator(cfg["response_selector"])
+        count = responses.count()
+        if count == 0:
+            raise BrowserAutomationError(f"{service} par koi response text nahi mila.")
+        last_response = responses.nth(count - 1)
+
+        code_elements = last_response.locator(".cm-content")
+        if code_elements.count() == 0:
+            code_elements = last_response.locator("pre")
+        blocks = [code_elements.nth(i).inner_text().strip() for i in range(code_elements.count())]
+
+        if not blocks:
+            blocks = extract_code_blocks(last_response.inner_text())
+
+        return [b for b in blocks if b]
 
     def close(self) -> None:
         if self._playwright:

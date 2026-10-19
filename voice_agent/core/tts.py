@@ -33,23 +33,32 @@ def _speak_pyttsx3(text):
 
 def _speak_edge(text):
     import asyncio
+    import concurrent.futures
     import edge_tts
     import playsound
 
-    async def _synthesize(path):
-        communicate = edge_tts.Communicate(text, config.TTS_EDGE_VOICE)
-        await communicate.save(path)
-
-    fd, path = tempfile.mkstemp(suffix=".mp3")
-    os.close(fd)
-    try:
-        asyncio.run(_synthesize(path))
-        playsound.playsound(path)
-    finally:
+    def _run():
+        fd, path = tempfile.mkstemp(suffix=".mp3")
+        os.close(fd)
+        loop = asyncio.new_event_loop()
         try:
-            os.remove(path)
-        except OSError:
-            pass
+            asyncio.set_event_loop(loop)
+
+            async def _synthesize():
+                communicate = edge_tts.Communicate(text, config.TTS_EDGE_VOICE)
+                await communicate.save(path)
+
+            loop.run_until_complete(_synthesize())
+            playsound.playsound(path)
+        finally:
+            loop.close()
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(_run).result()
 
 
 def speak(text):

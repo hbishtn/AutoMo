@@ -1,7 +1,5 @@
 """
-Phase 1 safe commands + Phase 2 browser-backed commands. Browser errors are
-caught here and turned into a spoken explanation — never swallowed, never
-reported as success when they weren't.
+Phase 1 safe commands + Phase 2 browser-backed commands + Phase 3 file ops.
 """
 import datetime
 import logging
@@ -15,6 +13,7 @@ class AgentState:
         self.paused = False
         self.running = True
         self.last_ai_service = "claude"
+        self.project_root = None
 
     def status_text(self):
         if not self.running:
@@ -101,7 +100,7 @@ def handle_read_response(browser, state):
         return str(exc)
 
 
-def handle_copy_code(browser, state: AgentState) -> str:
+def handle_copy_code(browser, state):
     try:
         import pyperclip
 
@@ -113,3 +112,17 @@ def handle_copy_code(browser, state: AgentState) -> str:
     except Exception as exc:
         logger.error("copy_code failed: %s", exc)
         return str(exc)
+
+
+def handle_project_open(state, raw_path):
+    from core import fileops
+
+    if not raw_path:
+        return "Kaunsa folder kholna hai, poora path bhi bolo."
+    return fileops.set_project(state, raw_path)
+
+
+def handle_list_files(state):
+    from core import fileops
+
+    return fileops.list_files(state)

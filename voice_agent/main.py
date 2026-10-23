@@ -35,8 +35,8 @@ _SIMPLE_DISPATCH = {
     "RESUME": lambda state: commands.handle_resume(state),
     "STOP": lambda state: commands.handle_stop(state),
     "STATUS": lambda state: commands.handle_status(state),
+    "LIST_FILES": lambda state: commands.handle_list_files(state),
 }
-
 _BROWSER_INTENTS = {"ASK_AI", "READ_RESPONSE", "COPY_CODE"}
 
 
@@ -91,6 +91,8 @@ def _dispatch(parsed, state, holder):
         return commands.handle_unknown(parsed.raw_text)
     if parsed.name == "EMPTY":
         return commands.handle_empty()
+    if parsed.name == "PROJECT_OPEN":
+        return commands.handle_project_open(state, parsed.payload)
     if parsed.name in _BROWSER_INTENTS:
         return _handle_browser_intent(parsed, state, holder)
     if parsed.name in _SIMPLE_DISPATCH:

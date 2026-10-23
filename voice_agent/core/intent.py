@@ -76,6 +76,25 @@ _READ_RESPONSE_PHRASES = [
 ]
 _COPY_CODE_PHRASES = [["code", "copy"], ["code", "nikaal"], ["copy", "code"]]
 
+_PROJECT_OPEN_WORDS = ["kholo", "khol", "open", "select"]
+_PROJECT_STRIP_WORDS = [
+    r"\bproject\b", r"\bfolder\b", r"\bkholo\b", r"\bkhol\b", r"\bopen\b", r"\bselect\b", r"\bkaro\b",
+]
+_LIST_FILES_PHRASES = [
+    ["files", "dikhao"], ["files", "batao"], ["list", "files"], ["file", "list"],
+]
+
+
+def _has_project_open_action(lowered):
+    return "project" in lowered and any(re.search(r"\b" + w + r"\b", lowered) for w in _PROJECT_OPEN_WORDS)
+
+
+def _build_project_path(original_text):
+    path = original_text
+    for pattern in _PROJECT_STRIP_WORDS:
+        path = re.sub(pattern, "", path, flags=re.IGNORECASE)
+    return path.strip(" ,.:-")
+
 
 def classify(text: str) -> Intent:
     lowered = text.lower().strip()
@@ -94,6 +113,14 @@ def classify(text: str) -> Intent:
     for keyword_set in _COPY_CODE_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="COPY_CODE", raw_text=text)
+
+    if _has_project_open_action(lowered):
+        path = _build_project_path(text)
+        return Intent(name="PROJECT_OPEN", raw_text=text, payload=path)
+
+    for keyword_set in _LIST_FILES_PHRASES:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="LIST_FILES", raw_text=text)
 
     for intent_name, keyword_sets in _INTENT_KEYWORD_SETS.items():
         for keyword_set in keyword_sets:

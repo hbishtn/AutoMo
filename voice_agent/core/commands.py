@@ -140,17 +140,23 @@ def handle_edit_propose(state, raw_command):
 
 
 def handle_edit_confirm(state):
+    from core import gitbackup
+
     if state.pending_edit is None:
         return "Koi pending edit nahi hai confirm karne ke liye."
     path = state.pending_edit["path"]
     new_content = state.pending_edit["new_content"]
+
+    # Backup the file's CURRENT (pre-edit) state before overwriting it.
+    backup_note = gitbackup.backup_file(state.project_root, path)
+
     try:
         path.write_text(new_content, encoding="utf-8")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("edit_confirm failed: %s", exc)
         return f"File save karte waqt error aaya: {exc}"
     state.pending_edit = None
-    return f"{path.name} save ho gayi."
+    return f"{path.name} save ho gayi. {backup_note}"
 
 
 def handle_edit_cancel(state):

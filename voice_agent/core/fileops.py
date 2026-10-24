@@ -95,9 +95,14 @@ def propose_edit(state, raw_command: str) -> str:
         return f"Yeh file nahi mili: {filename}"
 
     content = target.read_text(encoding="utf-8", errors="replace")
-    if old_text not in content:
+    match_count = content.count(old_text)
+    if match_count == 0:
         return f"Yeh text file me nahi mila:\n{old_text}"
-
+    if match_count > 1:
+        return (
+            f"Yeh text file me {match_count} jagah match ho raha hai — "
+            "zyada specific text do taaki sirf ek jagah match ho (jaise poori line copy karo)."
+        )
     new_content = content.replace(old_text, new_text, 1)
 
     diff = "\n".join(difflib.unified_diff(

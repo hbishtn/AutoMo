@@ -14,6 +14,7 @@ class AgentState:
         self.running = True
         self.last_ai_service = "claude"
         self.project_root = None
+        self.pending_edit = None
 
     def status_text(self):
         if not self.running:
@@ -126,3 +127,34 @@ def handle_list_files(state):
     from core import fileops
 
     return fileops.list_files(state)
+
+def handle_file_read(state, raw_name):
+    from core import fileops
+
+    return fileops.read_file(state, raw_name)
+
+def handle_edit_propose(state, raw_command):
+    from core import fileops
+
+    return fileops.propose_edit(state, raw_command)
+
+
+def handle_edit_confirm(state):
+    if state.pending_edit is None:
+        return "Koi pending edit nahi hai confirm karne ke liye."
+    path = state.pending_edit["path"]
+    new_content = state.pending_edit["new_content"]
+    try:
+        path.write_text(new_content, encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("edit_confirm failed: %s", exc)
+        return f"File save karte waqt error aaya: {exc}"
+    state.pending_edit = None
+    return f"{path.name} save ho gayi."
+
+
+def handle_edit_cancel(state):
+    if state.pending_edit is None:
+        return "Koi pending edit nahi hai cancel karne ke liye."
+    state.pending_edit = None
+    return "Edit cancel kar diya, kuch save nahi hua."

@@ -84,6 +84,25 @@ _LIST_FILES_PHRASES = [
     ["files", "dikhao"], ["files", "batao"], ["list", "files"], ["file", "list"],
 ]
 
+_CONFIRM_WORDS = [["haan", "confirm"], ["confirm", "karo"], ["yes", "confirm"]]
+_CANCEL_WORDS = [["nahi", "cancel"], ["cancel", "karo"], ["no", "cancel"]]
+
+_FILE_READ_WORDS = ["dikhao", "padho", "kholo", "show"]
+_FILE_READ_STRIP_WORDS = [
+    r"\bfile\b", r"\bdikhao\b", r"\bpadho\b", r"\bkholo\b", r"\bshow\b", r"\bkaro\b",
+]
+
+
+def _has_file_read_action(lowered):
+    return "file" in lowered and any(re.search(r"\b" + w + r"\b", lowered) for w in _FILE_READ_WORDS)
+
+
+def _build_file_name(original_text):
+    name = original_text
+    for pattern in _FILE_READ_STRIP_WORDS:
+        name = re.sub(pattern, "", name, flags=re.IGNORECASE)
+    return name.strip(" ,.:-")
+
 
 def _has_project_open_action(lowered):
     return "project" in lowered and any(re.search(r"\b" + w + r"\b", lowered) for w in _PROJECT_OPEN_WORDS)
@@ -100,6 +119,17 @@ def classify(text: str) -> Intent:
     lowered = text.lower().strip()
     if not lowered:
         return Intent(name="EMPTY", raw_text=text)
+
+    for keyword_set in _CONFIRM_WORDS:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="EDIT_CONFIRM", raw_text=text)
+
+    for keyword_set in _CANCEL_WORDS:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="EDIT_CANCEL", raw_text=text)
+
+    if "::" in text:
+        return Intent(name="EDIT_PROPOSE", raw_text=text, payload=text)
 
     service = _detect_service(lowered)
     if service and _has_ask_action(lowered):
@@ -121,6 +151,10 @@ def classify(text: str) -> Intent:
     for keyword_set in _LIST_FILES_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="LIST_FILES", raw_text=text)
+
+    if "files" not in lowered and _has_file_read_action(lowered):
+        name = _build_file_name(text)
+        return Intent(name="FILE_READ", raw_text=text, payload=name)
 
     for intent_name, keyword_sets in _INTENT_KEYWORD_SETS.items():
         for keyword_set in keyword_sets:

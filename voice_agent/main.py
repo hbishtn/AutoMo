@@ -27,6 +27,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("voice_agent.main")
 
+def _short_for_speech(text: str, limit: int = 150) -> str:
+    """Long content (file reads, diffs) prints fully but isn't worth
+    reading aloud word-by-word — speak a short version instead."""
+    first_line = text.split("\n", 1)[0]
+    if len(text) <= limit and "\n" not in text:
+        return text
+    return first_line[:limit] + " ... baaki screen par dekho."
+
 _SIMPLE_DISPATCH = {
     "TIME": lambda state: commands.handle_time(),
     "OPEN_NOTEPAD": lambda state: commands.handle_open_notepad(),
@@ -36,6 +44,7 @@ _SIMPLE_DISPATCH = {
     "STOP": lambda state: commands.handle_stop(state),
     "STATUS": lambda state: commands.handle_status(state),
     "LIST_FILES": lambda state: commands.handle_list_files(state),
+    "FILE_READ": lambda state: commands.handle_file_read(state, state.pending_file_name),
 }
 _BROWSER_INTENTS = {"ASK_AI", "READ_RESPONSE", "COPY_CODE"}
 
@@ -93,6 +102,14 @@ def _dispatch(parsed, state, holder):
         return commands.handle_empty()
     if parsed.name == "PROJECT_OPEN":
         return commands.handle_project_open(state, parsed.payload)
+    if parsed.name == "FILE_READ":
+        return commands.handle_file_read(state, parsed.payload)
+    if parsed.name == "EDIT_PROPOSE":
+        return commands.handle_edit_propose(state, parsed.payload)
+    if parsed.name == "EDIT_CONFIRM":
+        return commands.handle_edit_confirm(state)
+    if parsed.name == "EDIT_CANCEL":
+        return commands.handle_edit_cancel(state)
     if parsed.name in _BROWSER_INTENTS:
         return _handle_browser_intent(parsed, state, holder)
     if parsed.name in _SIMPLE_DISPATCH:
@@ -123,7 +140,7 @@ def run():
             if parsed.name in ("RESUME", "STOP"):
                 reply = _dispatch(parsed, state, holder)
                 print(f"Agent: {reply}")
-                tts.speak(reply)
+                tts.speak(_short_for_speech(reply))
             continue
 
         text = listen()
@@ -132,7 +149,7 @@ def run():
 
         if reply:
             print(f"Agent: {reply}")
-            tts.speak(reply)
+            tts.speak(_short_for_speech(reply))
 
     holder.close()
     logger.info("Agent stopped cleanly.")

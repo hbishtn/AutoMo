@@ -67,9 +67,10 @@ def handle_status(state):
 
 
 def handle_unknown(raw_text):
-    logger.info("Unrecognized command: %s", raw_text)
-    return "Maaf kijiye, main samjha nahi. Phir se boliye."
+    from core import chat
 
+    logger.info("No specific command matched, trying normal chat: %s", raw_text)
+    return chat.get_reply(raw_text)
 
 def handle_empty():
     return ""

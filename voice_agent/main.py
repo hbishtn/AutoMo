@@ -12,7 +12,7 @@ Switch modes:
 """
 import logging
 import sys
-
+import threading
 import config
 from core import browser as browser_module
 from core import commands, intent, tts
@@ -26,6 +26,12 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("voice_agent.main")
+
+
+def _speak_async(text: str) -> None:
+    """Speaks in the background so the next prompt/input shows immediately
+    instead of waiting for the whole line to finish being spoken."""
+    threading.Thread(target=tts.speak, args=(text,), daemon=True).start()
 
 def _short_for_speech(text: str, limit: int = 150) -> str:
     """Long content (file reads, diffs) prints fully but isn't worth
@@ -129,7 +135,7 @@ def run():
     greeting = "Voice agent shuru ho gaya hai. Main sun raha hoon." if mode == "voice" \
         else "Text agent shuru ho gaya hai. Command type karo."
     print(f"Agent: {greeting}")
-    tts.speak(greeting)
+    _speak_async(greeting)
     if mode == "voice" and backend == "free_fallback":
         logger.info("No GROQ_API_KEY set — using free Google Web Speech fallback.")
 
@@ -140,7 +146,7 @@ def run():
             if parsed.name in ("RESUME", "STOP"):
                 reply = _dispatch(parsed, state, holder)
                 print(f"Agent: {reply}")
-                tts.speak(_short_for_speech(reply))
+                _speak_async(_short_for_speech(reply))
             continue
 
         text = listen()
@@ -149,7 +155,7 @@ def run():
 
         if reply:
             print(f"Agent: {reply}")
-            tts.speak(_short_for_speech(reply))
+            _speak_async(_short_for_speech(reply))
 
     holder.close()
     logger.info("Agent stopped cleanly.")

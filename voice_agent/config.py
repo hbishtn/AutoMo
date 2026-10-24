@@ -7,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env", encoding="utf-8-sig")
 
 LOGS_DIR = BASE_DIR / "logs"
 BACKUPS_DIR = BASE_DIR / "backups"
@@ -21,7 +21,7 @@ AGENT_LANGUAGE_HINT = os.getenv("AGENT_LANGUAGE_HINT", "").strip() or None
 LISTEN_DURATION_SECONDS = int(os.getenv("LISTEN_DURATION_SECONDS", "4"))
 
 # --- Reserved for later phases ---
-GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile")
+GROQ_LLM_MODEL = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 NVIDIA_NIM_API_KEY = os.getenv("NVIDIA_NIM_API_KEY", "").strip()
 
 # --- TTS ---

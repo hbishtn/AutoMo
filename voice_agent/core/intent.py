@@ -83,6 +83,18 @@ _PROJECT_STRIP_WORDS = [
 _LIST_FILES_PHRASES = [
     ["files", "dikhao"], ["files", "batao"], ["list", "files"], ["file", "list"],
 ]
+_RUN_COMMAND_TRIGGERS = ["command chalao", "run command", "terminal me chalao", "chalao"]
+
+_FIX_ERROR_PHRASES = [["error", "fix"], ["galti", "theek"]]
+_APPLY_FIX_PHRASES = [["fix", "apply"], ["apply", "karo"]]
+
+def _extract_run_command(text):
+    lowered = text.lower()
+    for trigger in _RUN_COMMAND_TRIGGERS:
+        if trigger in lowered:
+            idx = lowered.find(trigger) + len(trigger)
+            return text[idx:].strip(" :,.-")
+    return ""
 
 _CONFIRM_WORDS = [["haan", "confirm"], ["confirm", "karo"], ["yes", "confirm"]]
 _CANCEL_WORDS = [["nahi", "cancel"], ["cancel", "karo"], ["no", "cancel"]]
@@ -151,6 +163,17 @@ def classify(text: str) -> Intent:
     for keyword_set in _LIST_FILES_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="LIST_FILES", raw_text=text)
+    for trigger in _RUN_COMMAND_TRIGGERS:
+        if trigger in lowered:
+            cmd = _extract_run_command(text)
+            return Intent(name="RUN_COMMAND", raw_text=text, payload=cmd)
+    for keyword_set in _FIX_ERROR_PHRASES:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="FIX_ERROR", raw_text=text)
+
+    for keyword_set in _APPLY_FIX_PHRASES:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="APPLY_FIX", raw_text=text)
 
     if "files" not in lowered and _has_file_read_action(lowered):
         name = _build_file_name(text)

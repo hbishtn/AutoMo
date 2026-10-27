@@ -15,6 +15,8 @@ class AgentState:
         self.last_ai_service = "claude"
         self.project_root = None
         self.pending_edit = None
+        self.last_command = None  # Phase 4: the last terminal command string that was run
+        self.last_command_output = None  # Phase 4: its output (for error-fixing)
 
     def status_text(self):
         if not self.running:
@@ -165,3 +167,36 @@ def handle_edit_cancel(state):
         return "Koi pending edit nahi hai cancel karne ke liye."
     state.pending_edit = None
     return "Edit cancel kar diya, kuch save nahi hua."
+
+def handle_run_command(state, raw_command):
+    from core import terminal
+
+    result = terminal.run_command(state, raw_command)
+    state.last_command = raw_command
+    state.last_command_output = result
+    return result
+
+def handle_fix_error(browser, state):
+    if state.last_command_output is None:
+        return "Abhi tak koi command run nahi hui, pehle 'command chalao' try karo."
+    if "FAILED" not in state.last_command_output and "failed" not in state.last_command_output.lower():
+        return "Pichla command successful tha, koi error nahi hai fix karne ko."
+
+    prompt = (
+        f"Is Python error ko fix karo. Command tha: {state.last_command}\n\n"
+        f"Error/output:\n{state.last_command_output}\n\n"
+        "Sirf corrected code do, poori file ka updated version."
+    )
+    try:
+        browser.send_prompt("chatgpt", prompt)
+        state.last_ai_service = "chatgpt"
+        return "Error ChatGPT ko bhej diya fix karne ke liye. Jawab aane par 'response padho' ya 'code copy karo' bolo."
+    except Exception as exc:  # noqa: BLE001
+        logger.error("fix_error failed: %s", exc)
+        return str(exc)
+
+
+def handle_apply_fix(browser, state):
+    from core import fileops
+
+    return fileops.propose_apply_fix(browser, state)

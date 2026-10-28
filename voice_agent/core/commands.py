@@ -183,9 +183,10 @@ def handle_fix_error(browser, state):
         return "Pichla command successful tha, koi error nahi hai fix karne ko."
 
     prompt = (
-        f"Is Python error ko fix karo. Command tha: {state.last_command}\n\n"
+        f"IGNORE humari purani baatein is chat me. Yeh BILKUL NAYA, ALAG error hai, "
+        f"abhi ka. Command tha: {state.last_command}\n\n"
         f"Error/output:\n{state.last_command_output}\n\n"
-        "Sirf corrected code do, poori file ka updated version."
+        "Sirf is current error ka corrected code do, poori file ka updated version."
     )
     try:
         browser.send_prompt("chatgpt", prompt)
@@ -200,3 +201,59 @@ def handle_apply_fix(browser, state):
     from core import fileops
 
     return fileops.propose_apply_fix(browser, state)
+
+
+def handle_auto_fix(browser, state):
+    import time
+    from core import fileops, terminal
+
+    if not state.last_command:
+        return "Pehle koi command run karo jiska error fix karna hai."
+
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        if "FAILED" not in (state.last_command_output or "") and "failed" not in (state.last_command_output or "").lower():
+            return f"Command already successful hai, kuch fix karne ki zarurat nahi."
+
+        logger.info("Auto-fix attempt %d/%d", attempt, max_attempts)
+
+        prompt = (
+            f"IGNORE humari purani baatein is chat me. Yeh BILKUL NAYA, ALAG error hai, "
+            f"abhi ka. Command tha: {state.last_command}\n\n"
+            f"Error/output:\n{state.last_command_output}\n\n"
+            "Sirf is current error ka corrected code do, poori file ka updated version."
+        )
+        
+        try:
+            browser.send_prompt("chatgpt", prompt)
+            state.last_ai_service = "chatgpt"
+        except Exception as exc:  # noqa: BLE001
+            return f"Attempt {attempt}: ChatGPT ko bhejne me error: {exc}"
+
+        try:
+            apply_result = fileops.propose_apply_fix(browser, state)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Attempt %d: propose_apply_fix failed: %s", attempt, exc)
+            if attempt < max_attempts:
+                continue
+            return f"Attempt {attempt}: Chrome/AI se response nahi mila: {exc}"
+        if "fix apply hoga" not in apply_result:
+            return f"Attempt {attempt}: {apply_result}"
+
+        if state.pending_edit is None:
+            return f"Attempt {attempt}: edit propose nahi ho paya."
+        path = state.pending_edit["path"]
+        new_content = state.pending_edit["new_content"]
+        from core import gitbackup
+        gitbackup.backup_file(state.project_root, path)
+        path.write_text(new_content, encoding="utf-8")
+        state.pending_edit = None
+
+        retest = terminal.run_command(state, state.last_command)
+        state.last_command_output = retest
+        logger.info("Attempt %d retest result: %s", attempt, "SUCCESS" if "success" in retest.lower() else "FAILED")
+
+        if "success" in retest.lower():
+            return f"Attempt {attempt} me fix ho gaya! {retest}"
+
+    return f"{max_attempts} attempts ke baad bhi fix nahi hua. Aakhri error:\n{state.last_command_output}"

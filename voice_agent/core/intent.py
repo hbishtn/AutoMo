@@ -87,6 +87,7 @@ _RUN_COMMAND_TRIGGERS = ["command chalao", "run command", "terminal me chalao", 
 
 _FIX_ERROR_PHRASES = [["error", "fix"], ["galti", "theek"]]
 _APPLY_FIX_PHRASES = [["fix", "apply"], ["apply", "karo"]]
+_AUTO_FIX_PHRASES = [["auto", "fix"], ["khud", "fix"], ["automatic", "fix"]]
 
 def _extract_run_command(text):
     lowered = text.lower()
@@ -174,6 +175,10 @@ def classify(text: str) -> Intent:
     for keyword_set in _APPLY_FIX_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="APPLY_FIX", raw_text=text)
+
+    for keyword_set in _AUTO_FIX_PHRASES:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="AUTO_FIX", raw_text=text)
 
     if "files" not in lowered and _has_file_read_action(lowered):
         name = _build_file_name(text)

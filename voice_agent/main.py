@@ -52,7 +52,7 @@ _SIMPLE_DISPATCH = {
     "LIST_FILES": lambda state: commands.handle_list_files(state),
     "FILE_READ": lambda state: commands.handle_file_read(state, state.pending_file_name),
 }
-_BROWSER_INTENTS = {"ASK_AI", "READ_RESPONSE", "COPY_CODE", "FIX_ERROR", "APPLY_FIX"}
+_BROWSER_INTENTS = {"ASK_AI", "READ_RESPONSE", "COPY_CODE", "FIX_ERROR", "APPLY_FIX", "AUTO_FIX"}
 
 
 def _resolve_input_mode():
@@ -102,6 +102,8 @@ def _handle_browser_intent(parsed, state, holder):
         return commands.handle_fix_error(browser, state)
     if parsed.name == "APPLY_FIX":
         return commands.handle_apply_fix(browser, state)
+    if parsed.name == "AUTO_FIX":
+        return commands.handle_auto_fix(browser, state)
     return commands.handle_unknown(parsed.raw_text)  # unreachable, kept for safety
 
 

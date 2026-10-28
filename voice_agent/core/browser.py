@@ -75,6 +75,13 @@ class BrowserController:
         page.goto(cfg["url"], wait_until="domcontentloaded")
         return page
 
+    def start_new_chat(self, service: str) -> None:
+        """Navigate to a fresh chat so old conversation history doesn't
+        confuse the AI's answer to a new error-fix prompt."""
+        cfg = _SITE_CONFIG[service]
+        page = self._get_or_open_tab(service)
+        page.goto(cfg["url"], wait_until="domcontentloaded")
+
     def send_prompt(self, service: str, prompt_text: str) -> None:
         if service not in _SITE_CONFIG:
             raise BrowserAutomationError(f"'{service}' supported nahi hai (sirf claude/chatgpt).")
@@ -83,9 +90,10 @@ class BrowserController:
 
         input_box = None
         for sel in cfg["input_selectors"]:
+            visible_sel = f"{sel}:visible"
             try:
-                page.wait_for_selector(sel, timeout=3000)
-                input_box = page.locator(sel).last
+                page.wait_for_selector(visible_sel, timeout=15000)
+                input_box = page.locator(visible_sel).last
                 break
             except PWTimeout:
                 continue
@@ -155,13 +163,18 @@ class BrowserController:
             raise BrowserAutomationError(f"{service} par koi response text nahi mila.")
         last_response = responses.nth(count - 1)
 
-        code_elements = last_response.locator(".cm-content")
-        if code_elements.count() == 0:
+        page = self._get_or_open_tab(service)
+        # Code blocks render via a React Portal detached from the message
+        # container (confirmed via diagnose.py), so search the WHOLE page
+        # for the last .cm-content, not just inside last_response.
+        global_code = page.locator(".cm-content")
+        if global_code.count() > 0:
+            blocks = [global_code.last.inner_text().strip()]
+        else:
             code_elements = last_response.locator("pre")
-        blocks = [code_elements.nth(i).inner_text().strip() for i in range(code_elements.count())]
-
-        if not blocks:
-            blocks = extract_code_blocks(last_response.inner_text())
+            blocks = [code_elements.nth(i).inner_text().strip() for i in range(code_elements.count())]
+            if not blocks:
+                blocks = extract_code_blocks(last_response.inner_text())
 
         return [b for b in blocks if b]
 

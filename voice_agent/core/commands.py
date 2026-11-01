@@ -18,6 +18,7 @@ class AgentState:
         self.pending_edit = None
         self.last_command = None  # Phase 4: the last terminal command string that was run
         self.last_command_output = None  # Phase 4: its output (for error-fixing)
+        self.files_sent_to_ai = set()  # Phase 4: filenames whose full content we've already sent in this chat
 
     def status_text(self):
         if not self.running:
@@ -184,18 +185,28 @@ def handle_fix_error(browser, state):
         return "Pichla command successful tha, koi error nahi hai fix karne ko."
 
     file_content_note = ""
+    filename = None
     match = re.search(r"(\S+\.py)", state.last_command or "")
     if match and state.project_root:
-        file_path = (state.project_root / match.group(1)).resolve()
-        if file_path.exists():
+        filename = match.group(1)
+        file_path = (state.project_root / filename).resolve()
+        if file_path.exists() and filename not in state.files_sent_to_ai:
             file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
+            state.files_sent_to_ai.add(filename)
 
-    prompt = (
-        f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
-        f"Error/output:\n{state.last_command_output}"
-        f"{file_content_note}\n\n"
-        "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
-    )
+    if file_content_note:
+        prompt = (
+            f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
+            f"Error/output:\n{state.last_command_output}"
+            f"{file_content_note}\n\n"
+            "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
+        )
+    else:
+        prompt = (
+            f"Yeh naya error aaya hai (file ka content tumhe pehle se pata hai is chat me): "
+            f"{state.last_command_output}\n\n"
+            "Poori file ka corrected version do."
+        )
     try:
         browser.send_prompt("chatgpt", prompt)
         state.last_ai_service = "chatgpt"
@@ -228,16 +239,25 @@ def handle_auto_fix(browser, state):
         file_content_note = ""
         match = re.search(r"(\S+\.py)", state.last_command or "")
         if match and state.project_root:
-            file_path = (state.project_root / match.group(1)).resolve()
-            if file_path.exists():
+            filename = match.group(1)
+            file_path = (state.project_root / filename).resolve()
+            if file_path.exists() and filename not in state.files_sent_to_ai:
                 file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
+                state.files_sent_to_ai.add(filename)
 
-        prompt = (
-            f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
-            f"Error/output:\n{state.last_command_output}"
-            f"{file_content_note}\n\n"
-            "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
-        )
+        if file_content_note:
+            prompt = (
+                f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
+                f"Error/output:\n{state.last_command_output}"
+                f"{file_content_note}\n\n"
+                "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
+            )
+        else:
+            prompt = (
+                f"Yeh naya error aaya hai (file ka content tumhe pehle se pata hai is chat me): "
+                f"{state.last_command_output}\n\n"
+                "Poori file ka corrected version do."
+            )
         
         try:
             browser.send_prompt("chatgpt", prompt)

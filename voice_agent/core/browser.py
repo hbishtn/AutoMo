@@ -173,8 +173,6 @@ class BrowserController:
         last_response = self._get_last_response_locator(service, wait_seconds)
         page = self._get_or_open_tab(service)
 
-        # Code blocks render via a React Portal detached from the message
-        # container — search the WHOLE page for the last CodeMirror editor.
         global_code = page.locator(".cm-content")
         if global_code.count() > 0:
             blocks = [global_code.last.inner_text().strip()]

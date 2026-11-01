@@ -1,22 +1,58 @@
-def calculate_total(price, quantity, discount_percent):
-    subtotal = price * quantity
-    discount_amount = subtotal * (discount_percent / 100)
-    total = subtotal + discount_amount  # BUG: should be subtotal - discount_amount
+class BankAccount:
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+        self.transaction_history = []
+
+    def deposit(self, amount):
+        if amount <= 0
+            raise ValueError("Deposit amount must be positive")
+        self.balance += amount
+        self.transaction_history.append(f"Deposited: {amount}")
+        return self.balance
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            raise ValueError("Insufficient funds")
+        self.balance -= amount
+        self.transaction_history.append(f"Withdrew: {amount}")
+        return self.balance
+
+    def get_balance(self):
+        return self.balance
+
+    def apply_interest(self, rate_percent):
+        interest = self.balance * rate_percent / 100
+        self.balance = self.balance + interest
+        return interest
+
+
+def transfer_funds(from_account, to_account, amount):
+    from_account.withdraw(amount)
+    to_account.deposit(amount)
+    return f"Transferred {amount} from {from_account.owner} to {to_account.owner}"
+
+
+def calculate_total_assets(accounts):
+    total = 0
+    for account in accounts:
+        total += account.get_balance()
     return total
 
-def apply_ tax(amount, tax_rate):
-    return amount * (1 + tax_rate / 100)
 
-price = 50
-quantity = 3
-discount = 10
-tax = 8
+if __name__ == "__main__":
+    alice = BankAccount("Alice", 1000)
+    bob = BankAccount("Bob", 500)
 
-total_before_tax = calculate_total(price, quantity, discount)
-final_total = apply_tax(total_before_tax, tax)
+    alice.deposit(200)
+    bob.withdraw(100)
 
-print(f"Subtotal: {price * quantity}")
-print(f"After discount: {total_before_tax}")
- print(f"Final total with tax: {final_total}")
+    print(transfer_funds(alice, bob, 300))
 
-assert total_before_tax < (price * quantity), "Discount should reduce the price!"
+    alice.apply_interest(5)
+
+    print(f"Alice's balance: {alice.get_balance()}")
+    print(f"Bob's balance: {bob.get_balance()}")
+    print(f"Total assets: {calculate_total_assets([alice, bob])}")
+
+    assert calculate_total_assets([alice, bob]) == 1500 + (1000 - 100) * 0.0, "Total should remain consistent plus interest"

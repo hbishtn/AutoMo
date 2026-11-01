@@ -4,6 +4,7 @@ Phase 1 safe commands + Phase 2 browser-backed commands + Phase 3 file ops.
 import datetime
 import logging
 import subprocess
+import re
 
 logger = logging.getLogger("voice_agent.commands")
 
@@ -182,11 +183,18 @@ def handle_fix_error(browser, state):
     if "FAILED" not in state.last_command_output and "failed" not in state.last_command_output.lower():
         return "Pichla command successful tha, koi error nahi hai fix karne ko."
 
+    file_content_note = ""
+    match = re.search(r"(\S+\.py)", state.last_command or "")
+    if match and state.project_root:
+        file_path = (state.project_root / match.group(1)).resolve()
+        if file_path.exists():
+            file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
+
     prompt = (
-        f"IGNORE humari purani baatein is chat me. Yeh BILKUL NAYA, ALAG error hai, "
-        f"abhi ka. Command tha: {state.last_command}\n\n"
-        f"Error/output:\n{state.last_command_output}\n\n"
-        "Sirf is current error ka corrected code do, poori file ka updated version."
+        f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
+        f"Error/output:\n{state.last_command_output}"
+        f"{file_content_note}\n\n"
+        "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
     )
     try:
         browser.send_prompt("chatgpt", prompt)
@@ -217,11 +225,18 @@ def handle_auto_fix(browser, state):
 
         logger.info("Auto-fix attempt %d/%d", attempt, max_attempts)
 
+        file_content_note = ""
+        match = re.search(r"(\S+\.py)", state.last_command or "")
+        if match and state.project_root:
+            file_path = (state.project_root / match.group(1)).resolve()
+            if file_path.exists():
+                file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
+
         prompt = (
-            f"IGNORE humari purani baatein is chat me. Yeh BILKUL NAYA, ALAG error hai, "
-            f"abhi ka. Command tha: {state.last_command}\n\n"
-            f"Error/output:\n{state.last_command_output}\n\n"
-            "Sirf is current error ka corrected code do, poori file ka updated version."
+            f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
+            f"Error/output:\n{state.last_command_output}"
+            f"{file_content_note}\n\n"
+            "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
         )
         
         try:

@@ -1,7 +1,21 @@
-File ke andar extra Markdown code fence (` ``` `) aa gaya hai. Use hata kar poori `wrong.py` file mein sirf yeh Python code rakho:
-
-```
-class BankAccount:    def __init__(self, owner, balance=0):        self.owner = owner        self.balance = balance        self.transaction_history = []    def deposit(self, amount):        if amount <= 0:            raise ValueError("Deposit amount must be positive")        self.balance += amount        self.transaction_history.append(f"Deposited: {amount}")        return self.balance    def withdraw(self, amount):        if amount <= 0:            raise ValueError("Withdrawal amount must be positive")        if amount > self.balance:            raise ValueError("Insufficient funds")        self.balance -= amount        self.transaction_history.append(f"Withdrew: {amount}")        return self.balance    def get_balance(self):        return self.balance    def apply_interest(self, rate_percent):        interest = self.balance * rate_percent / 100        self.balance += interest        return interestdef transfer_funds(from_account, to_account, amount):    from_account.withdraw(amount)    to_account.deposit(amount)    return f"Transferred {amount} from {from_account.owner} to {to_account.owner}"
-```
-
-Important: File ke first aur last mein ` ``` ` mat likhna. Sirf Python code save karna.
+class BankAccount:
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+        self.transaction_history = []
+
+    def deposit(self, amount):
+        if amount <= 0
+            raise ValueError("Deposit amount must be positive")
+        self.balance += amount
+        self.transaction_history.append(f"Deposited: {amount}")
+        return self.balance
+
+    def get_balance(self):
+        return self.balance
+
+
+if __name__ == "__main__":
+    alice = BankAccount("Alice", 1000)
+    alice.deposit(200)
+    print(f"Alice's balance: {alice.get_balance()}")

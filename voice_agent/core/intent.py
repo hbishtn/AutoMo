@@ -89,6 +89,18 @@ _FIX_ERROR_PHRASES = [["error", "fix"], ["galti", "theek"]]
 _APPLY_FIX_PHRASES = [["fix", "apply"], ["apply", "karo"]]
 _AUTO_FIX_PHRASES = [["auto", "fix"], ["khud", "fix"], ["automatic", "fix"]]
 
+_BUILD_FEATURE_TRIGGERS = ["feature banao", "feature add karo", "banado", "bana do"]
+
+_APPLY_FEATURE_TRIGGERS = ["feature apply karo", "feature apply"]
+
+def _extract_feature_description(text):
+    lowered = text.lower()
+    for trigger in _BUILD_FEATURE_TRIGGERS:
+        if trigger in lowered:
+            idx = lowered.find(trigger) + len(trigger)
+            return text[idx:].strip(" :,.-")
+    return ""
+
 def _extract_run_command(text):
     lowered = text.lower()
     for trigger in _RUN_COMMAND_TRIGGERS:
@@ -172,6 +184,10 @@ def classify(text: str) -> Intent:
         if all(k in lowered for k in keyword_set):
             return Intent(name="FIX_ERROR", raw_text=text)
 
+    for trigger in _APPLY_FEATURE_TRIGGERS:
+        if trigger in lowered:
+            return Intent(name="APPLY_FEATURE", raw_text=text)
+
     for keyword_set in _APPLY_FIX_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="APPLY_FIX", raw_text=text)
@@ -179,6 +195,11 @@ def classify(text: str) -> Intent:
     for keyword_set in _AUTO_FIX_PHRASES:
         if all(k in lowered for k in keyword_set):
             return Intent(name="AUTO_FIX", raw_text=text)
+
+    for trigger in _BUILD_FEATURE_TRIGGERS:
+        if trigger in lowered:
+            desc = _extract_feature_description(text)
+            return Intent(name="BUILD_FEATURE", raw_text=text, payload=desc)
 
     if "files" not in lowered and _has_file_read_action(lowered):
         name = _build_file_name(text)

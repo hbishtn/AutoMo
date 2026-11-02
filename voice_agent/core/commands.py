@@ -152,10 +152,20 @@ def handle_edit_confirm(state):
         return "Koi pending edit nahi hai confirm karne ke liye."
     path = state.pending_edit["path"]
     new_content = state.pending_edit["new_content"]
+    is_new_file = state.pending_edit.get("is_new_file", False)
 
-    # Backup the file's CURRENT (pre-edit) state before overwriting it.
+    if is_new_file:
+        # Nothing to back up yet — write first, THEN commit the new file.
+        try:
+            path.write_text(new_content, encoding="utf-8")
+        except Exception as exc:
+            logger.error("edit_confirm failed: %s", exc)
+            return f"File save karte waqt error aaya: {exc}"
+        backup_note = gitbackup.backup_file(state.project_root, path)
+        state.pending_edit = None
+        return f"{path.name} nayi file ban gayi. {backup_note}"
+
     backup_note = gitbackup.backup_file(state.project_root, path)
-
     try:
         path.write_text(new_content, encoding="utf-8")
     except Exception as exc:
@@ -343,3 +353,32 @@ def handle_auto_fix(browser, state):
             return f"Attempt {attempt} me fix ho gaya! {retest}"
 
     return f"{max_attempts} attempts ke baad bhi fix nahi hua. Aakhri error:\n{state.last_command_output}"
+
+def handle_build_feature(browser, state, description):
+    if state.project_root is None:
+        return "Pehle project folder select karo."
+    if not description:
+        return "Kya banana hai, woh bhi bolo. Jaise: feature banao ek calculator jo do number add kare"
+
+    prompt = (
+        f"Mujhe yeh feature chahiye: {description}\n\n"
+        "IMPORTANT FORMAT: jawab ka SABSE PEHLA word bilkul yeh hona chahiye: "
+        "FILE: <filename.py> — naye file ka naam jo banana hai. Uske turant baad, "
+        "us file ka poora Python code do. Sirf ek hi file banao, simple aur working rakho."
+    )
+    try:
+        browser.send_prompt("chatgpt", prompt)
+        state.last_ai_service = "chatgpt"
+        return "ChatGPT ko feature-request bhej diya. Jawab aane par 'feature apply karo' bolo."
+    except Exception as exc:  # noqa: BLE001
+        logger.error("build_feature failed: %s", exc)
+        return str(exc)
+
+def handle_apply_feature(browser, state):
+    from core import fileops
+
+    try:
+        return fileops.propose_new_file(browser, state)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("apply_feature failed: %s", exc)
+        return f"Feature apply karte waqt error aaya: {exc}"

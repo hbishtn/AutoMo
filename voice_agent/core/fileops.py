@@ -160,3 +160,37 @@ def propose_apply_fix(browser, state) -> str:
 
     state.pending_edit = {"path": target, "new_content": new_content}
     return f"Yeh fix apply hoga:\n{diff}\n\nConfirm karne ke liye 'haan confirm karo' bolo."
+
+def propose_new_file(browser, state) -> str:
+    if state.project_root is None:
+        return "Pehle project folder select karo."
+
+    response_text = browser.read_latest_response(state.last_ai_service)
+    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.py)`?", response_text)
+    if not file_marker:
+        return "AI ne file ka naam nahi bataya. 'response padho' karke khud check karo."
+    filename = file_marker.group(1)
+
+    blocks = browser.read_latest_code_blocks(state.last_ai_service)
+    if not blocks:
+        return "AI ke jawab me mujhe koi code block nahi mila."
+    new_content = blocks[0]
+
+    target = (state.project_root / filename).resolve()
+    try:
+        target.relative_to(state.project_root)
+    except ValueError:
+        return "Yeh file project folder se bahar hai."
+
+    if target.exists():
+        old_content = target.read_text(encoding="utf-8", errors="replace")
+        diff = "\n".join(difflib.unified_diff(
+            old_content.splitlines(), new_content.splitlines(),
+            fromfile=filename, tofile=filename, lineterm="",
+        ))
+        preview = f"Yeh file already exist karti hai, yeh change hoga:\n{diff}"
+    else:
+        preview = f"Yeh NAYI file banegi: {filename}\n\n{new_content[:500]}"
+
+    state.pending_edit = {"path": target, "new_content": new_content, "is_new_file": not target.exists()}
+    return f"{preview}\n\nConfirm karne ke liye 'haan confirm karo' bolo."

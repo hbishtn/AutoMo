@@ -120,10 +120,26 @@ def propose_apply_fix(browser, state) -> str:
     if not state.last_command:
         return "Pehle koi command run karo jiska error fix karna hai."
 
-    match = re.search(r"(\S+\.py)", state.last_command)
-    if not match:
-        return "Mujhe pata nahi chal paya kaunsi file fix karni hai."
-    filename = match.group(1)
+    blocks = browser.read_latest_code_blocks(state.last_ai_service)
+    if not blocks:
+        return "AI ke jawab me mujhe koi code block nahi mila."
+
+    # Check if the AI told us WHICH file this code is for ("FILE: xyz.py").
+    # Case-insensitive, and tolerant of markdown formatting (**FILE:** `x.py`).
+    response_text = browser.read_latest_response(state.last_ai_service)
+    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.py)`?", response_text)
+    if file_marker:
+        filename = file_marker.group(1)
+    else:
+        # No explicit marker — DON'T guess which file, that risks overwriting
+        # the wrong one (as happened before). Ask the user instead.
+        sent_files = ", ".join(sorted(state.files_sent_to_ai)) or "(koi nahi)"
+        return (
+            "AI ne yeh nahi bataya kaunsi file ke liye yeh code hai, isliye main "
+            "guess nahi karunga (galat file overwrite ho sakti thi). Ab tak AI ko "
+            f"yeh files pata hain: {sent_files}. 'response padho' karke khud check "
+            "karo, phir specific bolo."
+        )
 
     target = (state.project_root / filename).resolve()
     try:
@@ -133,9 +149,6 @@ def propose_apply_fix(browser, state) -> str:
     if not target.exists():
         return f"Yeh file nahi mili: {filename}"
 
-    blocks = browser.read_latest_code_blocks(state.last_ai_service)
-    if not blocks:
-        return "AI ke jawab me mujhe koi code block nahi mila."
     new_content = blocks[0]
 
     old_content = target.read_text(encoding="utf-8", errors="replace")

@@ -5,6 +5,7 @@ import datetime
 import logging
 import subprocess
 import re
+from pathlib import Path
 
 logger = logging.getLogger("voice_agent.commands")
 
@@ -185,27 +186,53 @@ def handle_fix_error(browser, state):
         return "Pichla command successful tha, koi error nahi hai fix karne ko."
 
     file_content_note = ""
-    filename = None
-    match = re.search(r"(\S+\.py)", state.last_command or "")
-    if match and state.project_root:
-        filename = match.group(1)
-        file_path = (state.project_root / filename).resolve()
-        if file_path.exists() and filename not in state.files_sent_to_ai:
-            file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
-            state.files_sent_to_ai.add(filename)
+    # Find EVERY .py file mentioned in the traceback (via File "path", line N),
+    # not just the one named on the command line — an ImportError points at
+    # a DIFFERENT file than the one we ran, and AI needs that context too.
+    traceback_files = re.findall(r'File "([^"]+\.py)"', state.last_command_output or "")
+    command_match = re.search(r"(\S+\.py)", state.last_command or "")
+    if command_match:
+        traceback_files.append(command_match.group(1))
+
+    seen_filenames = []
+    for raw_path in traceback_files:
+        try:
+            fp = Path(raw_path).resolve()
+        except Exception:  # noqa: BLE001
+            continue
+        if state.project_root is None:
+            continue
+        try:
+            rel = fp.relative_to(state.project_root)
+        except ValueError:
+            continue  # outside project (e.g. a stdlib file) — skip
+        rel_str = str(rel)
+        if rel_str in seen_filenames or rel_str in state.files_sent_to_ai:
+            continue
+        if not fp.exists():
+            continue
+        seen_filenames.append(rel_str)
+        content = fp.read_text(encoding="utf-8", errors="replace")
+        file_content_note += f"\n\n--- {rel_str} ---\n```python\n{content}\n```"
+        state.files_sent_to_ai.add(rel_str)
 
     if file_content_note:
         prompt = (
             f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
             f"Error/output:\n{state.last_command_output}"
             f"{file_content_note}\n\n"
-            "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
+            "IMPORTANT FORMAT: jawab ka SABSE PEHLA word bilkul yeh hona chahiye: "
+            "FILE: <exact filename.py> — us file ka naam jisme badlav karna hai "
+            "(upar di gayi files me se). Uske turant baad, usi file ka poora "
+            "corrected code do. Format example:\nFILE: helper.py\n```python\n...\n```"
         )
     else:
         prompt = (
-            f"Yeh naya error aaya hai (file ka content tumhe pehle se pata hai is chat me): "
+            f"Yeh naya error aaya hai (files ka content tumhe pehle se pata hai is chat me): "
             f"{state.last_command_output}\n\n"
-            "Poori file ka corrected version do."
+            "IMPORTANT FORMAT: jawab ka SABSE PEHLA word bilkul yeh hona chahiye: "
+            "FILE: <exact filename.py>. Uske turant baad, usi file ka poora corrected "
+            "code do."
         )
     try:
         browser.send_prompt("chatgpt", prompt)
@@ -237,26 +264,50 @@ def handle_auto_fix(browser, state):
         logger.info("Auto-fix attempt %d/%d", attempt, max_attempts)
 
         file_content_note = ""
-        match = re.search(r"(\S+\.py)", state.last_command or "")
-        if match and state.project_root:
-            filename = match.group(1)
-            file_path = (state.project_root / filename).resolve()
-            if file_path.exists() and filename not in state.files_sent_to_ai:
-                file_content_note = f"\n\nPoori file ka current content:\n```python\n{file_path.read_text(encoding='utf-8', errors='replace')}\n```"
-                state.files_sent_to_ai.add(filename)
+        traceback_files = re.findall(r'File "([^"]+\.py)"', state.last_command_output or "")
+        command_match = re.search(r"(\S+\.py)", state.last_command or "")
+        if command_match:
+            traceback_files.append(command_match.group(1))
+
+        seen_filenames = []
+        for raw_path in traceback_files:
+            try:
+                fp = Path(raw_path).resolve()
+            except Exception:  # noqa: BLE001
+                continue
+            if state.project_root is None:
+                continue
+            try:
+                rel = fp.relative_to(state.project_root)
+            except ValueError:
+                continue
+            rel_str = str(rel)
+            if rel_str in seen_filenames or rel_str in state.files_sent_to_ai:
+                continue
+            if not fp.exists():
+                continue
+            seen_filenames.append(rel_str)
+            content = fp.read_text(encoding="utf-8", errors="replace")
+            file_content_note += f"\n\n--- {rel_str} ---\n```python\n{content}\n```"
+            state.files_sent_to_ai.add(rel_str)
 
         if file_content_note:
             prompt = (
                 f"Is error ko fix karo. Command tha: {state.last_command}\n\n"
                 f"Error/output:\n{state.last_command_output}"
                 f"{file_content_note}\n\n"
-                "Poori file ka corrected version do (sirf ek hi line nahi, poori file)."
+                "IMPORTANT FORMAT: jawab ka SABSE PEHLA word bilkul yeh hona chahiye: "
+                "FILE: <exact filename.py> — us file ka naam jisme badlav karna hai "
+                "(upar di gayi files me se). Uske turant baad, usi file ka poora "
+                "corrected code do."
             )
         else:
             prompt = (
-                f"Yeh naya error aaya hai (file ka content tumhe pehle se pata hai is chat me): "
+                f"Yeh naya error aaya hai (files ka content tumhe pehle se pata hai is chat me): "
                 f"{state.last_command_output}\n\n"
-                "Poori file ka corrected version do."
+                "IMPORTANT FORMAT: jawab ka SABSE PEHLA word bilkul yeh hona chahiye: "
+                "FILE: <exact filename.py>. Uske turant baad, usi file ka poora corrected "
+                "code do."
             )
         
         try:

@@ -16,6 +16,9 @@ import threading
 import config
 from core import browser as browser_module
 from core import commands, intent, tts
+from colorama import init as colorama_init, Fore, Style
+
+colorama_init(autoreset=True)
 
 logging.basicConfig(
     level=logging.INFO,

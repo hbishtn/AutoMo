@@ -11,3 +11,5 @@ pyautogui==0.9.54       # Phase 2/3: keyboard/mouse control
 pyperclip==1.9.0         # Phase 2/3: clipboard access
 pytest==8.3.3              # Phase 4: running/validating test suites
 GitPython==3.1.43           # Phase 3: backups via git
+
+colorama==0.4.6

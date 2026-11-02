@@ -111,6 +111,8 @@ def _extract_run_command(text):
 
 _CONFIRM_WORDS = [["haan", "confirm"], ["confirm", "karo"], ["yes", "confirm"]]
 _CANCEL_WORDS = [["nahi", "cancel"], ["cancel", "karo"], ["no", "cancel"]]
+_SHORT_YES = {"y", "yes", "haan"}
+_SHORT_NO = {"n", "no", "nahi"}
 
 _FILE_READ_WORDS = ["dikhao", "padho", "kholo", "show"]
 _FILE_READ_STRIP_WORDS = [
@@ -144,6 +146,11 @@ def classify(text: str) -> Intent:
     lowered = text.lower().strip()
     if not lowered:
         return Intent(name="EMPTY", raw_text=text)
+
+    if lowered in _SHORT_YES:
+        return Intent(name="EDIT_CONFIRM", raw_text=text)
+    if lowered in _SHORT_NO:
+        return Intent(name="EDIT_CANCEL", raw_text=text)
 
     for keyword_set in _CONFIRM_WORDS:
         if all(k in lowered for k in keyword_set):

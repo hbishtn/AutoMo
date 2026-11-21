@@ -127,7 +127,7 @@ def propose_apply_fix(browser, state) -> str:
     # Check if the AI told us WHICH file this code is for ("FILE: xyz.py").
     # Case-insensitive, and tolerant of markdown formatting (**FILE:** `x.py`).
     response_text = browser.read_latest_response(state.last_ai_service)
-    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.py)`?", response_text)
+    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.(?:py|js|jsx|ts|tsx))`?", response_text)
     if file_marker:
         filename = file_marker.group(1)
     else:
@@ -166,7 +166,7 @@ def propose_new_file(browser, state) -> str:
         return "Pehle project folder select karo."
 
     response_text = browser.read_latest_response(state.last_ai_service)
-    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.py)`?", response_text)
+    file_marker = re.search(r"(?i)file:?\**\s*`?(\S+?\.(?:py|js|jsx|ts|tsx))`?", response_text)
     if not file_marker:
         return "AI ne file ka naam nahi bataya. 'response padho' karke khud check karo."
     filename = file_marker.group(1)

@@ -1,5 +1,6 @@
 """
-Entry point — Phase 1 (voice + safe local commands) + Phase 2 (Chrome/AI commands).
+Entry point — Phase 1 (voice + safe local commands) + Phase 2 (Chrome/AI commands)
++ Phase 3 (file read/edit) + Phase 4 (terminal run + AI error fixing + feature build).
 
 Two input modes:
   - voice (default): mic -> speech-to-text -> command
@@ -13,10 +14,12 @@ Switch modes:
 import logging
 import sys
 import threading
+
+from colorama import init as colorama_init, Fore, Style
+
 import config
 from core import browser as browser_module
 from core import commands, intent, tts
-from colorama import init as colorama_init, Fore, Style
 
 colorama_init(autoreset=True)
 
@@ -30,20 +33,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("voice_agent.main")
 
-
-def _speak_async(text: str) -> None:
-    """Speaks in the background so the next prompt/input shows immediately
-    instead of waiting for the whole line to finish being spoken."""
-    threading.Thread(target=tts.speak, args=(text,), daemon=True).start()
-
-def _short_for_speech(text: str, limit: int = 150) -> str:
-    """Long content (file reads, diffs) prints fully but isn't worth
-    reading aloud word-by-word — speak a short version instead."""
-    first_line = text.split("\n", 1)[0]
-    if len(text) <= limit and "\n" not in text:
-        return text
-    return first_line[:limit] + " ... baaki screen par dekho."
-
 _SIMPLE_DISPATCH = {
     "TIME": lambda state: commands.handle_time(),
     "OPEN_NOTEPAD": lambda state: commands.handle_open_notepad(),
@@ -53,9 +42,35 @@ _SIMPLE_DISPATCH = {
     "STOP": lambda state: commands.handle_stop(state),
     "STATUS": lambda state: commands.handle_status(state),
     "LIST_FILES": lambda state: commands.handle_list_files(state),
-    "FILE_READ": lambda state: commands.handle_file_read(state, state.pending_file_name),
 }
-_BROWSER_INTENTS = {"ASK_AI", "READ_RESPONSE", "COPY_CODE", "FIX_ERROR", "APPLY_FIX", "AUTO_FIX", "BUILD_FEATURE", "APPLY_FEATURE"}
+
+_BROWSER_INTENTS = {
+    "ASK_AI", "READ_RESPONSE", "COPY_CODE", "FIX_ERROR", "APPLY_FIX",
+    "AUTO_FIX", "BUILD_FEATURE", "APPLY_FEATURE",
+}
+
+
+def _speak_async(text):
+    threading.Thread(target=tts.speak, args=(text,), daemon=True).start()
+
+
+def _short_for_speech(text, limit=150):
+    first_line = text.split("\n", 1)[0]
+    if len(text) <= limit and "\n" not in text:
+        return text
+    return first_line[:limit] + " ... baaki screen par dekho."
+
+
+def _print_colored(reply):
+    lowered = reply.lower()
+    if "confirm karne ke liye" in lowered:
+        print(f"Agent: {Fore.YELLOW}{reply}{Style.RESET_ALL}")
+    elif "save ho gayi" in lowered or "ban gayi" in lowered:
+        print(f"Agent: {Fore.GREEN}{reply}{Style.RESET_ALL}")
+    elif "cancel kar diya" in lowered:
+        print(f"Agent: {Fore.RED}{reply}{Style.RESET_ALL}")
+    else:
+        print(f"Agent: {reply}")
 
 
 def _resolve_input_mode():
@@ -111,7 +126,7 @@ def _handle_browser_intent(parsed, state, holder):
         return commands.handle_build_feature(browser, state, parsed.payload)
     if parsed.name == "APPLY_FEATURE":
         return commands.handle_apply_feature(browser, state)
-    return commands.handle_unknown(parsed.raw_text)  # unreachable, kept for safety
+    return commands.handle_unknown(parsed.raw_text)
 
 
 def _dispatch(parsed, state, holder):
@@ -131,6 +146,8 @@ def _dispatch(parsed, state, holder):
         return commands.handle_edit_cancel(state)
     if parsed.name == "RUN_COMMAND":
         return commands.handle_run_command(state, parsed.payload)
+    if parsed.name == "UNDO":
+        return commands.handle_undo(state)
     if parsed.name in _BROWSER_INTENTS:
         return _handle_browser_intent(parsed, state, holder)
     if parsed.name in _SIMPLE_DISPATCH:
@@ -160,7 +177,7 @@ def run():
             parsed = intent.classify(text)
             if parsed.name in ("RESUME", "STOP"):
                 reply = _dispatch(parsed, state, holder)
-                print(f"Agent: {reply}")
+                _print_colored(reply)
                 _speak_async(_short_for_speech(reply))
             continue
 
@@ -169,7 +186,7 @@ def run():
         reply = _dispatch(parsed, state, holder)
 
         if reply:
-            print(f"Agent: {reply}")
+            _print_colored(reply)
             _speak_async(_short_for_speech(reply))
 
     holder.close()

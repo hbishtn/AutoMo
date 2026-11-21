@@ -93,6 +93,8 @@ _BUILD_FEATURE_TRIGGERS = ["feature banao", "feature add karo", "banado", "bana 
 
 _APPLY_FEATURE_TRIGGERS = ["feature apply karo", "feature apply"]
 
+_UNDO_PHRASES = [["undo"], ["wapas", "lao"], ["purana", "karo"]]
+
 def _extract_feature_description(text):
     lowered = text.lower()
     for trigger in _BUILD_FEATURE_TRIGGERS:
@@ -194,6 +196,10 @@ def classify(text: str) -> Intent:
     for trigger in _APPLY_FEATURE_TRIGGERS:
         if trigger in lowered:
             return Intent(name="APPLY_FEATURE", raw_text=text)
+
+    for keyword_set in _UNDO_PHRASES:
+        if all(k in lowered for k in keyword_set):
+            return Intent(name="UNDO", raw_text=text)
 
     for keyword_set in _APPLY_FIX_PHRASES:
         if all(k in lowered for k in keyword_set):

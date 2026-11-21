@@ -44,3 +44,19 @@ def backup_file(project_root: Path, file_path: Path) -> str:
 
     logger.info("Backed up %s before edit", rel_path)
     return "(Backup commit ho gaya)"
+
+def undo_last_edit(project_root: Path, file_path: Path) -> str:
+    """Restores a file to its last committed (backed-up) state, discarding
+    whatever was written after that backup."""
+
+    def run(args):
+        return subprocess.run(
+            ["git", "-C", str(project_root)] + args,
+            capture_output=True, text=True,
+        )
+
+    rel_path = file_path.relative_to(project_root)
+    result = run(["checkout", "--", str(rel_path)])
+    if result.returncode != 0:
+        return f"Undo nahi ho paya: {result.stderr.strip()}"
+    return f"{rel_path} purani (last backup) state me wapas aa gayi."

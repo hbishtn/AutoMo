@@ -20,7 +20,8 @@ class AgentState:
         self.last_command = None  # Phase 4: the last terminal command string that was run
         self.last_command_output = None  # Phase 4: its output (for error-fixing)
         self.files_sent_to_ai = set()  # Phase 4: filenames whose full content we've already sent in this chat
-
+        self.last_edited_file = None  # Phase 4: path of the last file we wrote, for quick undo
+        
     def status_text(self):
         if not self.running:
             return "Agent is stopped."
@@ -163,6 +164,7 @@ def handle_edit_confirm(state):
             return f"File save karte waqt error aaya: {exc}"
         backup_note = gitbackup.backup_file(state.project_root, path)
         state.pending_edit = None
+        state.last_edited_file = path
         return f"{path.name} nayi file ban gayi. {backup_note}"
 
     backup_note = gitbackup.backup_file(state.project_root, path)
@@ -172,6 +174,7 @@ def handle_edit_confirm(state):
         logger.error("edit_confirm failed: %s", exc)
         return f"File save karte waqt error aaya: {exc}"
     state.pending_edit = None
+    state.last_edited_file = path
     return f"{path.name} save ho gayi. {backup_note}"
 
 
@@ -382,3 +385,11 @@ def handle_apply_feature(browser, state):
     except Exception as exc:  # noqa: BLE001
         logger.error("apply_feature failed: %s", exc)
         return f"Feature apply karte waqt error aaya: {exc}"
+
+
+def handle_undo(state):
+    from core import gitbackup
+
+    if state.last_edited_file is None:
+        return "Abhi tak koi file edit nahi hui is session me, undo karne ko kuch nahi."
+    return gitbackup.undo_last_edit(state.project_root, state.last_edited_file)
